@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B3B3F">
+<script src="firebase-config.js"></script>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>IronDesk Gym</title>
+<style>
+:root{--teal:#0B3B3F;--teal2:#14575c;--pearl:#F3F0E8;--lime:#B6FF1A;--sh:#c9c5b8;--hi:#fff}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{font-family:system-ui,sans-serif;background:var(--pearl);color:var(--teal);min-height:100vh;padding:env(safe-area-inset-top) 0 90px}
+#app{max-width:480px;margin:auto;padding:18px}
+h1{font-size:26px}h2{font-size:20px;margin:6px 0 14px}p.s{opacity:.65;font-size:13px}
+.clay{background:var(--pearl);border-radius:26px;padding:18px;margin-bottom:16px;box-shadow:10px 10px 22px var(--sh),-8px -8px 18px var(--hi),inset 2px 2px 5px #fff,inset -3px -3px 6px #e2ddd0}
+.dark{background:var(--teal);color:var(--pearl);box-shadow:10px 10px 22px #9d9a8e,-8px -8px 18px #fff,inset 3px 3px 7px #1f6a70,inset -4px -4px 8px #062629}
+.btn{border:0;cursor:pointer;font-weight:800;font-size:15px;padding:14px 20px;border-radius:20px;background:var(--lime);color:var(--teal);width:100%;box-shadow:6px 6px 14px #8aa83a,-4px -4px 10px #fff,inset 2px 2px 4px #dfff8a,inset -3px -3px 5px #8fcc00}
+.btn:active{transform:scale(.97)}.btn.sm{width:auto;padding:8px 14px;font-size:13px;border-radius:14px}
+.btn.t{background:var(--teal);color:var(--lime);box-shadow:6px 6px 14px #9d9a8e,-4px -4px 10px #fff,inset 2px 2px 4px #2a7d83,inset -3px -3px 5px #062629}
+input,select{width:100%;padding:14px;border:0;border-radius:16px;background:var(--pearl);color:var(--teal);font-size:15px;margin-bottom:12px;box-shadow:inset 5px 5px 10px var(--sh),inset -5px -5px 10px var(--hi);outline:0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.role{text-align:center;padding:26px 10px;cursor:pointer;font-weight:800}.role span{font-size:34px;display:block;margin-bottom:6px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px dashed #cfcabc}.row:last-child{border:0}
+.tag{font-size:11px;font-weight:800;padding:4px 10px;border-radius:12px;background:var(--lime);color:var(--teal)}.tag.r{background:var(--teal);color:var(--pearl)}
+.big{font-size:34px;font-weight:900}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--pearl);box-shadow:0 -6px 18px var(--sh)}
+nav button{flex:1;max-width:150px;border:0;padding:12px 4px;border-radius:18px;font-weight:800;font-size:12px;background:var(--pearl);color:var(--teal);box-shadow:4px 4px 9px var(--sh),-4px -4px 9px #fff}
+nav button.on{background:var(--teal);color:var(--lime);box-shadow:inset 3px 3px 7px #062629,inset -3px -3px 7px #1f6a70}
+canvas{display:block;margin:auto;border-radius:18px;background:#fff;padding:10px}
+.cal{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:6px}.cal i{aspect-ratio:1;border-radius:5px;background:#dcd8cb}.cal i.p{background:var(--lime)}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--teal);color:var(--lime);padding:12px 20px;border-radius:18px;font-weight:800;z-index:99;box-shadow:6px 6px 16px #9d9a8e}.ov{position:fixed;inset:0;background:#0b3b3fcc;display:flex;align-items:center;justify-content:center;z-index:50}.qbox{background:#fff;border-radius:18px;padding:12px;display:flex;justify-content:center;min-height:200px}#mode{position:fixed;top:4px;right:10px;font-size:10px;opacity:.7}</style></head><body><div id="mode"></div><div id="app"></div><nav id="nav"></nav>
+<script>
+const $=s=>document.querySelector(s),TODAY=new Date().toISOString().slice(0,10),PRICE=500;
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+const dl=d=>Math.ceil((new Date(d)-new Date(TODAY))/864e5),inr=n=>'₹'+n.toLocaleString('en-IN');
+const loadJS=u=>new Promise((r,j)=>{const s=document.createElement('script');s.src=u;s.onload=r;s.onerror=j;document.head.appendChild(s)});
+const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+let DB={m:[],pay:[],set:{trainers:['Kamal','Imran'],pins:{}}},fdb=null,role=null,scr=null,meId=null,tName=null,q='';
+const L=()=>localStorage.gym2=JSON.stringify(DB);
+const defSet=async()=>({trainers:['Kamal','Imran'],pins:{owner:await sha('1111'),reception:await sha('2222'),trainer:await sha('3333')}});
+function seed(){const n=['Rahul S.','Priya K.','Amit M.','Sana N.','Vijay J.','Deepak K.'],pl=[3,1,12,3,1,3],paid=[1500,500,6000,1000,0,1500],off=[-3,12,200,-20,-1,5],last=[0,0,1,22,15,0];
+return n.map((x,i)=>({id:101+i,name:x,phone:'98765432'+('0'+i),plan:pl[i],fee:PRICE*pl[i],paid:paid[i],end:addD(TODAY,off[i]),trainer:i%2?'Imran':'Kamal',last:addD(TODAY,-last[i]),att:[TODAY],diet:''}))}
+async function init(){DB.set=await defSet();
+ if(window.FIREBASE_CONFIG){try{const b='https://www.gstatic.com/firebasejs/10.12.2/firebase-';await loadJS(b+'app-compat.js');await loadJS(b+'firestore-compat.js');firebase.initializeApp(FIREBASE_CONFIG);fdb=firebase.firestore();
+ const er=e=>{$('#mode').textContent='🔴 Firestore error: '+e.code;toast('Firestore error: '+e.code+' — database/rules check karein')};fdb.collection('members').onSnapshot(s=>{DB.m=s.docs.map(d=>d.data());refresh()},er);
+ fdb.collection('pays').onSnapshot(s=>{DB.pay=s.docs.map(d=>d.data()).sort((a,b)=>a.t-b.t);refresh()},er);
+ fdb.doc('cfg/main').onSnapshot(async s=>{if(s.exists)DB.set=s.data();else{DB.set=await defSet();fdb.doc('cfg/main').set(DB.set)}refresh()},er);$('#mode').textContent='🟢 Live sync ON';return}catch(e){console.warn(e)}}
+ const x=JSON.parse(localStorage.gym2||'null');if(x)DB=x;else{DB.m=seed();DB.set=await defSet();L()}$('#mode').textContent='🟡 Offline demo (local)'}
+const putM=m=>fdb?fdb.collection('members').doc(''+m.id).set(m):L();
+const delM=id=>{if(fdb)fdb.collection('members').doc(''+id).delete();else{DB.m=DB.m.filter(m=>m.id!=id);L()}};
+const addPay=p=>{p.t=Date.now();fdb?fdb.collection('pays').add(p):(DB.pay.push(p),L())};
+const putSet=()=>fdb?fdb.doc('cfg/main').set(DB.set):L();
+function refresh(){if(role&&!document.activeElement.matches('input,select'))render()}
+const toast=t=>{const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),2600)};
+const M=()=>DB.m.find(m=>m.id==meId),due=m=>m.fee-m.paid,gone=m=>-dl(m.last),gayab=()=>DB.m.filter(m=>gone(m)>=7);
+const mine=()=>DB.m.filter(m=>m.trainer==tName);
+const wa=(m,t)=>`https://wa.me/91${m.phone.replace(/\D/g,'').slice(-10)}?text=${encodeURIComponent(t)}`;
+const status=m=>{const d=dl(m.end);return d<0?'<span class="tag r">KHATAM</span>':d<=7?`<span class="tag r">${d}d left</span>`:'<span class="tag">Active</span>'};
+const NAV={guest:[['join','📝 Join']],member:[['join','📝 Join'],['qr','📱 QR'],['plan','🏋️ Plans']],reception:[['att','✅ Attendance'],['fees','💰 Fees'],['ren','🔔 Renewals']],trainer:[['mine','👥 My Members'],['diet','🥗 Diet']],owner:[['rep','📊 Report'],['gone','👻 Members']]};
+NAV.member=NAV.member.filter(n=>n[0]!='join');
+const go=s=>{scr=s;render()};
+function login(){role=null;meId=null;$('#nav').innerHTML='';$('#app').innerHTML=`<div class="clay dark"><h1>💪 IronDesk</h1><p class="s" style="color:#F3F0E8">Fees • Renewal • Gayab members — sab ek app me</p></div><h2>Login as</h2><div class="grid">
+${[['member','🧑‍🎤','Member'],['reception','🛎️','Reception'],['trainer','🏋️','Trainer'],['owner','👑','Owner']].map(r=>`<div class="clay role" onclick="pick('${r[0]}')"><span>${r[1]}</span>${r[2]}</div>`).join('')}</div><div id="lf"></div><button class="btn t" onclick="role='guest';go('join')">📝 Naye ho? Online Join karein</button>`}
+function pick(r){const t=DB.set?DB.set.trainers:[];$('#lf').innerHTML=`<div class="clay"><h2>${r.toUpperCase()} login</h2>${r=='member'?'<input id="u" placeholder="Member ID" inputmode="numeric"><input id="p" type="password" placeholder="Phone ke last 4 digits" inputmode="numeric">':(r=='trainer'?`<select id="u">${t.map(x=>`<option>${x}</option>`).join('')}</select>`:'')+'<input id="p" type="password" placeholder="PIN" inputmode="numeric">'}<button class="btn" onclick="doLogin('${r}')">Login</button><p class="s" style="margin-top:8px">${r=='member'?'Demo: ID 101, 3200':'Default PIN: owner 1111, reception 2222, trainer 3333 (owner baad me badal sakta hai)'}</p></div>`;$('#lf').scrollIntoView({behavior:'smooth'})}
+async function doLogin(r){if(!DB.set)return toast('Loading... dobara try karein');const p=$('#p').value.trim();
+ if(r=='member'){const m=DB.m.find(x=>x.id==$('#u').value);if(!m||m.phone.slice(-4)!=p)return toast('ID ya phone galat hai');meId=m.id}
+ else{if(await sha(p)!=DB.set.pins[r])return toast('PIN galat hai');if(r=='trainer')tName=$('#u').value}
+ role=r;go(NAV[r][0][0])}
+function render(){if(!role)return;if(role=='member'&&!M())return login();const nv=NAV[role];$('#nav').innerHTML=nv.length>1?nv.map(n=>`<button class="${n[0]==scr?'on':''}" onclick="go('${n[0]}')">${n[1]}</button>`).join(''):'';
+$('#app').innerHTML=`<div class="top"><div><h1>${nv.find(n=>n[0]==scr)[1]}</h1><p class="s">${role.toUpperCase()}${role=='member'?' • '+M().name:role=='trainer'?' • '+tName:''}</p></div><button class="btn t sm" onclick="login()">${role=='guest'?'Back':'Logout'}</button></div>`+V[scr]();if(scr=='att')render2()}
+const mrow=(m,btn)=>`<div class="row"><div><b>${m.name}</b> <span class="s">#${m.id}</span><br><span class="s">${m.phone} • ${m.trainer}</span></div>${btn}</div>`;
+const plansOpt=`${[1,3,6,12].map(n=>`<option value="${n}">${n} Month${n>1?'s':''} – ${inr(PRICE*n)}</option>`).join('')}`;
+const addForm=()=>`<div class="clay"><h2>➕ Naya Member Add</h2><input id="jn" placeholder="Full name"><input id="jp" placeholder="10-digit phone (last 4 digit = member PIN)" inputmode="tel" maxlength="10"><select id="jl">${plansOpt}</select><select id="jt">${DB.set.trainers.map(t=>`<option>${t}</option>`).join('')}</select><button class="btn" onclick="joinNow()">Add Member</button></div>`;
+const V={
+join:()=>`<div class="clay"><h2>Online Joining</h2><p class="s" style="margin-bottom:10px">Fees: ${inr(PRICE)} per month</p><input id="jn" placeholder="Full name"><input id="jp" placeholder="10-digit phone" inputmode="tel" maxlength="10"><select id="jl">${plansOpt}</select><button class="btn" onclick="joinNow()">Join Now</button></div>`,
+qr:()=>{const m=M();setTimeout(async()=>{try{if(!window.qrcode)await loadJS('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js');const c=qrcode(0,'M');c.addData('GYM:'+m.id);c.make();$('#qs').innerHTML=c.createSvgTag(6,0)}catch{$('#qs').innerHTML='<p class="s">Pehli baar internet on karke QR load karein</p>'}},0);
+ return`<div class="clay"><div id="qs" class="qbox"></div><p class="s" style="text-align:center;margin-top:10px">Member #${m.id} • Gate par reception ko scan karwayein</p></div><div class="clay"><b>Membership</b> ${status(m)}<p class="s" style="margin:6px 0">Ends ${m.end} • Baaki fees ${inr(due(m))}</p><b>Last 30 din</b><div class="cal">${Array.from({length:30},(_,i)=>`<i class="${m.att.includes(addD(TODAY,i-29))?'p':''}"></i>`).join('')}</div></div>`},
+plan:()=>{const m=M(),W=[['Chest + Triceps','Bench 4x10, Incline DB 3x12, Dips 3x12'],['Back + Biceps','Deadlift 4x8, Rows 3x12, Curls 3x12'],['Legs','Squat 4x10, Leg press 3x12, Lunges 3x12'],['Shoulders + Abs','OHP 4x10, Lateral raise 3x15, Plank 3x60s'],['Cardio + Core','Treadmill 25 min, Cycling 15 min, Crunches']];
+ return`<div class="clay dark"><b>🥗 Aapka diet plan</b><p style="margin-top:6px">${m.diet||'Trainer ne abhi assign nahi kiya'}</p></div>`+W.map((w,i)=>`<div class="clay"><b>Day ${i+1}: ${w[0]}</b><p class="s" style="margin-top:6px">${w[1]}</p></div>`).join('')},
+att:()=>addForm()+`<button class="btn" onclick="scanQR()" style="margin-bottom:14px">📷 Scan Member QR</button><input placeholder="Search name / ID" oninput="q=this.value;render2()" id="sq"><div class="clay" id="al"></div>`,
+fees:()=>`<div class="clay"><h2>Fees Entry</h2><select id="fm">${DB.m.map(m=>`<option value="${m.id}">${m.name} (#${m.id}) – baaki ${inr(due(m))}</option>`).join('')}</select><input id="fa" type="number" placeholder="Amount ₹" inputmode="numeric"><select id="fmo"><option>Cash</option><option>UPI</option><option>Card</option></select><button class="btn" onclick="payFee()">Save Payment</button></div><div class="clay"><b>Recent payments</b>${DB.pay.slice(-6).reverse().map(p=>`<div class="row"><span>${p.n}</span><span class="tag">${inr(p.a)} ${p.mo}</span></div>`).join('')||'<p class="s">Abhi koi entry nahi</p>'}</div>`,
+ren:()=>{const l=DB.m.filter(m=>dl(m.end)<=7).sort((a,b)=>dl(a.end)-dl(b.end));return`<p class="s" style="margin-bottom:12px">Khatam ya 7 din me khatam hone wale members</p><div class="clay">${l.map(m=>mrow(m,`<div style="text-align:right">${status(m)}<br><button class="btn sm" style="margin:6px 4px 0 0" onclick="renew(${m.id})">Renew</button><a class="btn sm t" style="text-decoration:none" href="${wa(m,`Hi ${m.name}, aapki gym membership ${m.end} ko khatam ho rahi hai. Renew karwa lein 💪`)}">WA</a></div>`)).join('')||'Sab active ✅'}</div>`},
+mine:()=>`<div class="clay"><h2>Naya Member Add</h2><input id="jn" placeholder="Full name"><input id="jp" placeholder="10-digit phone" inputmode="tel" maxlength="10"><select id="jl">${plansOpt}</select><button class="btn" onclick="joinNow(tName)">Add Member</button></div><div class="clay"><b>Mere members (${mine().length})</b>${mine().map(m=>mrow(m,`<div style="text-align:right">${status(m)}<br><button class="btn sm t" style="margin-top:6px" onclick="rm(${m.id})">Remove</button></div>`)).join('')||'<p class="s">Koi member nahi</p>'}</div>`,
+diet:()=>{const D=[['Weight Loss','Oats+egg whites | Dal+roti+salad | Paneer+veg | Fruits, 3L water'],['Muscle Gain','Paneer paratha+milk | Rice+chicken+dal | Eggs+banana shake | Roti+soya'],['Maintenance','Poha | Roti+sabzi+curd | Sprouts | Dal-chawal+salad']];
+ return`<div class="clay"><h2>Diet Assign</h2><select id="dm">${mine().map(m=>`<option value="${m.id}">${m.name}${m.diet?' ('+m.diet+')':''}</option>`).join('')}</select><select id="dt">${D.map(d=>`<option>${d[0]}</option>`).join('')}</select><button class="btn" onclick="assignDiet()">Assign Diet</button></div>`+D.map(d=>`<div class="clay"><b>${d[0]}</b><p class="s" style="margin-top:6px">${d[1]}</p></div>`).join('')},
+rep:()=>{const t=DB.m.filter(m=>m.att.includes(TODAY)).length,pt=DB.pay.filter(p=>p.d==TODAY).reduce((a,p)=>a+p.a,0),pm=DB.pay.filter(p=>p.d.slice(0,7)==TODAY.slice(0,7)).reduce((a,p)=>a+p.a,0),dm=DB.m.filter(m=>due(m)>0),dt=dm.reduce((a,m)=>a+due(m),0);
+ return`<div class="grid"><div class="clay dark"><p class="s" style="color:#fff">Aaj aaye</p><div class="big" style="color:var(--lime)">${t}</div></div><div class="clay dark"><p class="s" style="color:#fff">Aaj collection</p><div class="big" style="color:var(--lime)">${inr(pt)}</div></div><div class="clay"><p class="s">Is mahine collection</p><div class="big">${inr(pm)}</div></div><div class="clay"><p class="s">Total baaki</p><div class="big">${inr(dt)}</div></div></div>
+<div class="clay"><b>Baaki fees wale (${dm.length}) — fees jama wale yahan nahi</b>${dm.map(m=>`<div class="row"><div><b>${m.name}</b><br><span class="s">${m.phone}</span></div><div style="text-align:right"><span class="tag r">${inr(due(m))}</span><br><a class="btn sm" style="text-decoration:none;margin-top:6px" href="${wa(m,`Hi ${m.name}, ${inr(due(m))} fees baaki hai. Please jama kar dein 🙏`)}">Remind</a></div></div>`).join('')||'Sabki fees jama ✅'}</div>
+<div class="clay"><b>Members: ${DB.m.length} • Gayab: ${gayab().length}</b></div><div class="clay"><b>🔐 PIN badlein</b><select id="pr"><option>owner</option><option>reception</option><option>trainer</option></select><input id="pn" type="password" placeholder="Naya PIN (4+ digit)" inputmode="numeric"><button class="btn" onclick="chPin()">Save PIN</button></div>`},
+gone:()=>addForm()+`<div class="clay"><b>👻 Gayab (7+ din) — ${gayab().length}</b>${gayab().map(m=>mrow(m,`<div style="text-align:right"><span class="s">${gone(m)} din</span><br><a class="btn sm" style="text-decoration:none;margin:6px 4px 0 0" href="${wa(m,`Hi ${m.name}, aapko gym me miss kar rahe hain! Wapas aaiye 💪`)}">WA</a><button class="btn sm t" onclick="rm(${m.id})">Remove</button></div>`)).join('')||'Koi gayab nahi 🎉'}</div><div class="clay"><b>Saare members (${DB.m.length})</b>${DB.m.map(m=>mrow(m,`<div style="text-align:right">${status(m)}<br><button class="btn sm t" style="margin-top:6px" onclick="rm(${m.id})">Remove</button></div>`)).join('')}</div>`};
+function render2(){const e=$('#al');if(!e)return;e.innerHTML=DB.m.filter(m=>(m.name+m.id).toLowerCase().includes(q.toLowerCase())).map(m=>mrow(m,`<div style="text-align:right">${status(m)}<br><button class="btn sm ${m.att.includes(TODAY)?'t':''}" style="margin-top:6px" onclick="mark(${m.id})">${m.att.includes(TODAY)?'Present ✓':'Mark'}</button></div>`)).join('')}
+function checkin(m,force){if(dl(m.end)<0&&!force)return false;if(!m.att.includes(TODAY))m.att.push(TODAY);m.last=TODAY;putM(m);return true}
+function mark(id){const m=DB.m.find(x=>x.id==id);if(dl(m.end)<0&&!confirm('Membership KHATAM hai. Phir bhi mark karein?'))return;checkin(m,1);render2()}
+async function scanQR(){const o=document.createElement('div');o.className='ov';o.innerHTML='<div class="clay" style="width:92%;max-width:420px"><div id="rd"></div><button class="btn t" style="margin-top:12px" id="rx">Close</button></div>';document.body.appendChild(o);let sc,last=0;
+ $('#rx').onclick=async()=>{try{await sc.stop()}catch{}o.remove()};
+ try{if(!window.Html5Qrcode)await loadJS('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js');sc=new Html5Qrcode('rd');
+ await sc.start({facingMode:'environment'},{fps:10,qrbox:220},t=>{if(Date.now()-last<2500)return;last=Date.now();const m=DB.m.find(x=>'GYM:'+x.id==t);if(!m)return toast('❌ Unknown QR');toast(checkin(m)?`✅ ${m.name} present`:`⛔ ${m.name}: membership KHATAM`);render2()})}catch{toast('Camera ya internet available nahi');o.remove()}}
+function joinNow(tr){const n=$('#jn').value.trim(),p=$('#jp').value.trim();if(!n||!/^\d{10}$/.test(p))return toast('Naam aur 10-digit phone bharo');const pl=+$('#jl').value,id=Math.max(100,...DB.m.map(m=>m.id))+1;
+ const m={id,name:n,phone:p,plan:pl,fee:PRICE*pl,paid:0,end:addD(TODAY,pl*30),trainer:typeof tr=='string'?tr:$('#jt')?$('#jt').value:DB.set.trainers[id%DB.set.trainers.length],last:TODAY,att:[],diet:''};if(!fdb)DB.m.push(m);putM(m);
+ if(role=='guest'){alert(`Welcome ${n}! Member ID: ${id}\nLogin: ID ${id} + phone ke last 4 digits (${p.slice(-4)})\nFees ${inr(m.fee)} reception par jama karein.`);login()}else{alert(`Member add ho gaya!\nID: ${id}\nMember PIN (phone ke last 4 digit): ${p.slice(-4)}`);render()}}
+function rm(id){const m=DB.m.find(x=>x.id==id);if(confirm(`${m.name} (#${id}) ko remove karein? Ye undo nahi hoga.`)){delM(id);render()}}
+function payFee(){const m=DB.m.find(x=>x.id==$('#fm').value),a=+$('#fa').value;if(!a||a<=0)return toast('Amount daalo');if(a>due(m))return toast('Baaki sirf '+inr(due(m))+' hai');m.paid+=a;putM(m);addPay({n:m.name,a,mo:$('#fmo').value,d:TODAY});toast('Payment saved ✅');render()}
+function renew(id){const m=DB.m.find(x=>x.id==id),n=+prompt('Kitne mahine? (1 / 3 / 6 / 12)','1');if(![1,3,6,12].includes(n))return;m.plan=n;m.end=addD(dl(m.end)>0?m.end:TODAY,n*30);m.fee+=PRICE*n;putM(m);render()}
+function assignDiet(){const m=DB.m.find(x=>x.id==$('#dm').value);if(!m)return;m.diet=$('#dt').value;putM(m);toast('Diet assigned ✅');render()}
+async function chPin(){const p=$('#pn').value.trim();if(p.length<4)return toast('Kam se kam 4 digit');DB.set.pins[$('#pr').value]=await sha(p);putSet();toast('PIN badal gaya ✅');$('#pn').value=''}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+$('#app').innerHTML='<p class="s">Loading…</p>';init().then(login);
+</script></body></html>
